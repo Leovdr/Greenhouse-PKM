@@ -1,5 +1,74 @@
 <?php 
+    // Koneksi ke Database
+    $conn = mysqli_connect("localhost", "root", "", "pkm_greenhouse");
+    if(!$conn) {
+        die("Conn fail: " . mysqli_connect_error());
+    }
 
+    // Membuat Jangkauan Grafik 10 hari ke belakang
+    // Kalibrasi Tanggal
+    date_default_timezone_set("Asia/Jakarta");
+    $date      = date('d-m-Y');
+
+    // Mempersiapkan Array
+    $tgl_ready = array();
+    $suhu_arr  = array();
+    $hum_arr   = array();
+    $ph_arr    = array();
+
+    // Variabel hari (Setting $j sesuai dengan kebutuhan)
+    $j = 10;
+    for ($i=0; $i < 10; $i++) { 
+        $date2 = date('Y-m-d', strtotime("-".$j." days", strtotime($date)));
+        // Mengatur X-Axis pada tabel grafik
+        $tgl_ready[$i] = $date2;
+
+        // Kalkulasi banyaknya data tiap parameter sesuai tanggal
+        $sql = mysqli_query($conn, "SELECT COUNT(suhu) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql)) {
+            $data_suhu  = $row[0];
+        }
+
+        $sql = mysqli_query($conn, "SELECT COUNT(kelembapan) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql)) {
+            $data_kelembapan  = $row[0];
+        }
+
+        $sql = mysqli_query($conn, "SELECT COUNT(ph_tanah) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql)) {
+            $data_ph_tanah  = $row[0];
+        }
+
+        // Mengambil nilai rata-rata setiap parameter sesuai tanggal 
+        $sql_2 = mysqli_query($conn, "SELECT SUM(suhu) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql_2)) {
+            $total_suhu  = $row[0];
+        }
+
+        $sql_2 = mysqli_query($conn, "SELECT SUM(kelembapan) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql_2)) {
+            $total_kelembapan  = $row[0];
+        }
+
+        $sql_2 = mysqli_query($conn, "SELECT SUM(ph_tanah) FROM tbl_dashboard WHERE `tanggal` = '".$date2."';");
+        if ($row = mysqli_fetch_array($sql_2)) {
+            $total_ph_tanah  = $row[0];
+        }
+
+        // menghitung mean setiap parameter sesuai tanggal
+        $mean_suhu       = round($total_suhu / $data_suhu,1);
+        $mean_kelembapan = round($total_kelembapan / $data_kelembapan,1);
+        $mean_ph_tanah   = round($total_ph_tanah / $data_ph_tanah,2);  
+
+        // Memasukkan mean ke dalam array
+        $suhu_arr[$i] = $mean_suhu;
+        $hum_arr[$i]  = $mean_kelembapan;
+        $ph_arr[$i]   = $mean_ph_tanah;
+
+
+        // Mengurangi variabel agar tanggal menurun
+        $j--;
+    }
 ?>
 
 <!DOCTYPE html>
@@ -13,7 +82,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>SB Admin 2 - Dashboard</title>
+    <title>PKM KC - Greenhouse POLIJE 2022</title>
 
     <!-- Custom fonts for this template-->
     <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
@@ -62,7 +131,7 @@
                                         <div class="col mr-2">
                                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                                 Suhu</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">30°C</div>
+                                            <div id="suhu" class="h5 mb-0 font-weight-bold text-gray-800">Loading Data...</div>
                                         </div>
                                         <div class="col-auto">
                                             <i class="fa-solid fa-temperature-quarter fa-2x text-gray-300"></i>
@@ -80,7 +149,7 @@
                                         <div class="col mr-2">
                                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                                 Kelembapan</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">50%</div>
+                                            <div id="kelembapan" class="h5 mb-0 font-weight-bold text-gray-800">Loading Data...</div>
                                         </div>
                                         <div class="col-auto">
                                             <i class="fa-solid fa-droplet fa-2x text-gray-300"></i>
@@ -100,7 +169,7 @@
                                             </div>
                                             <div class="row no-gutters align-items-center">
                                                 <div class="col-auto">
-                                                    <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">6.8</div>
+                                                    <div id="ph_tanah" class="h5 mb-0 mr-3 font-weight-bold text-gray-800">Loading Data...</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -120,11 +189,7 @@
                                         <div class="col mr-2">
                                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                                 Status Penyiraman</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                            <span class="replace-me">
-                                                Idle, Menyiram
-                                            </span>
-                                        </div>
+                                            <div id="status" class="h5 mb-0 font-weight-bold text-gray-800">Loading Data...</div>
                                         </div>
                                         <div class="col-auto">
                                             <i class="fas fa-comments fa-2x text-gray-300"></i>
@@ -163,11 +228,9 @@
                                     <h6 class="m-0 font-weight-bold text-primary">Suhu</h6>
                                 </div>
                                 <div class="card-body">
-                                    <p>SB Admin 2 makes extensive use of Bootstrap 4 utility classes in order to reduce
-                                        CSS bloat and poor page performance. Custom CSS classes are used to create
-                                        custom components and custom utility classes.</p>
-                                    <p class="mb-0">Before working with this theme, you should become familiar with the
-                                        Bootstrap framework, especially the utility classes.</p>
+                                    <p>Suhu menunjukkan derajat panas di dalam Greenhouse. Mudahnya, semakin tinggi suhu di dalam Greenhouse, semakin panas ruangan tersebut. 
+                                        Suhu di greenhouse ini digunakan sebagai parameter agar penyiraman dapat dilakukan secara otomatis, 
+                                        jika suhu ada diatas 31° maka penyiraman akan aktif secara otomatis,sedangkan jika telah mencapai suhu dibawah 31° akan otomatis berhenti.</p>
                                 </div>
                         </div>
                         </div>
@@ -179,11 +242,9 @@
                                     <h6 class="m-0 font-weight-bold text-primary">Kelembapan</h6>
                                 </div>
                                 <div class="card-body">
-                                    <p>SB Admin 2 makes extensive use of Bootstrap 4 utility classes in order to reduce
-                                        CSS bloat and poor page performance. Custom CSS classes are used to create
-                                        custom components and custom utility classes.</p>
-                                    <p class="mb-0">Before working with this theme, you should become familiar with the
-                                        Bootstrap framework, especially the utility classes.</p>
+                                    <p>Kelembaban adalah konsentrasi kandungan dari uap air yang ada di udara. 
+                                        Uap air yang terdapat dalam atmosfer bisa berubah wujud menjadi cair atau padat. 
+                                        Kelembaban disini sangat berpengaruh terhadap tanaman,jika tanaman kekurangan kadar air maka tanaman akan layu/mati.</p>
                                 </div>
                             </div>
                         </div>
@@ -195,11 +256,8 @@
                                     <h6 class="m-0 font-weight-bold text-primary">pH Tanah</h6>
                                 </div>
                                 <div class="card-body">
-                                    <p>SB Admin 2 makes extensive use of Bootstrap 4 utility classes in order to reduce
-                                        CSS bloat and poor page performance. Custom CSS classes are used to create
-                                        custom components and custom utility classes.</p>
-                                    <p class="mb-0">Before working with this theme, you should become familiar with the
-                                        Bootstrap framework, especially the utility classes.</p>
+                                    <p>pH tanah adalah tingkat keasaman atau kebasaan suatu tanaman yang diukur dengan skala pH antara 0 hingga 14. 
+                                        pH Tanah sangat berpengaruh bagi tanaman. pH yang baik bagi tanaman berada di angka 7.</p>
                                 </div>
                             </div>
                         </div>
@@ -208,14 +266,12 @@
                             <!-- Approach -->
                             <div class="card shadow mb-4">
                                 <div class="card-header py-3">
-                                    <h6 class="m-0 font-weight-bold text-primary">Sembarang</h6>
+                                    <h6 class="m-0 font-weight-bold text-primary">Status Penyiraman</h6>
                                 </div>
                                 <div class="card-body">
-                                    <p>SB Admin 2 makes extensive use of Bootstrap 4 utility classes in order to reduce
-                                        CSS bloat and poor page performance. Custom CSS classes are used to create
-                                        custom components and custom utility classes.</p>
-                                    <p class="mb-0">Before working with this theme, you should become familiar with the
-                                        Bootstrap framework, especially the utility classes.</p>
+                                    <p>Status penyiraman pada web ini bertujuan agar pemilik greenhouse dapat mengetahui apakah penyiraman sedang aktif atau sudah nonaktif. 
+                                        Jika aktif maka status penyiraman akan menampilkan tulisan aktif. 
+                                        Jika nonaktif maka status penyiraman akan menampilkan tulisan nonaktif.</p>
                                 </div>
                             </div>
                         </div>
@@ -229,7 +285,7 @@
             <footer class="sticky-footer bg-white">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; Your Website 2021</span>
+                        <span>Copyright &copy;</span> <span style="color: purple; font-weight: 900;"> PKM KC - Greenhouse POLIJE 2022</span>
                     </div>
                 </div>
             </footer>
@@ -281,9 +337,46 @@
 
 
     <!-- Replace Me-->
-    <script src="js/replaceme.min.js"></script><script>
+    <!-- <script src="js/replaceme.min.js"></script><script>
         var replace = new ReplaceMe(document.querySelector('.replace-me'));
+    </script> -->
+
+    <!-- Additional JS -->
+    <script>
+        $(document).ready(function() {
+            selesai();
+        })
+
+        function selesai() {
+            setInterval(function() {
+                update();
+            }, 1000);
+        }
+        
+        function update() {
+            $.getJSON('stream/stream.php', function(data) {
+                $.each(data.result_1, function() {
+                    let suhu;
+                    suhu = this['suhu'];
+
+                    console.log("masuk");
+
+                    if (suhu >=31) {
+                        $("#status").replaceWith(`<div id="status" class="h5 mb-0 font-weight-bold text-gray-800">Aktif</div>`);
+                    } else{
+                        $("#status").replaceWith(`<div id="status" class="h5 mb-0 font-weight-bold text-gray-800">Nonaktif</div>`);
+                    }
+
+                    $("#suhu").replaceWith(`<div id="suhu" class="h5 mb-0 font-weight-bold text-gray-800">`+suhu+`</div>`);
+                    $("#kelembapan").replaceWith(`<div id="kelembapan" class="h5 mb-0 font-weight-bold text-gray-800">`+this['kelembapan']+`</div>`);
+                    $("#ph_tanah").replaceWith(`<div id="ph_tanah" class="h5 mb-0 mr-3 font-weight-bold text-gray-800">`+this['ph_tanah']+`</div>`);
+                    
+                })
+            });
+        }
+
     </script>
+
 
     <!-- Highlight Graphics -->
     <script src="https://code.highcharts.com/highcharts.js"></script>
@@ -295,11 +388,11 @@
         Highcharts.chart('chartNilai', {
 
         title: {
-            text: 'Grafik Nilai Greenhouse'
+            text: 'Grafik Data Greenhouse'
         },
 
         subtitle: {
-            text: '30 Hari Terakhir'
+            text: '10 Hari Terakhir'
         },
 
         yAxis: {
@@ -309,7 +402,7 @@
         },
 
         xAxis: {
-            range: 6 * 30 * 24 * 3600 * 1000 // six months
+            categories: <?php echo json_encode($tgl_ready); ?>
         },
 
         rangeSelector: {
@@ -323,23 +416,30 @@
         },
 
         plotOptions: {
-            series: {
-                label: {
-                    connectorAllowed: true
+            line: {
+                dataLabels: {
+                    enabled: true
                 },
-                pointStart: 0
+                enableMouseTracking: false
             }
+
+            // series: {
+            //     label: {
+            //         connectorAllowed: true
+            //     },
+            //     // pointStart: 1
+            // }
         },
 
         series: [{
             name: 'Suhu',
-            data: [11,22,33,44,1,6,2,5,2,1,4,1,3,5,7,5,7,5,3,6,4,7,3,6,9,2,6,9,22,5],
+            data: <?php echo json_encode($suhu_arr); ?>
         }, {
             name: 'Kelembapan',
-            data: [24,84,3,58,33,44,1,6,2,5,2,1,4,1,3,5,7,5,7,5,3,6,4,7,3,6,9,2,6,9,22,5],
+            data: <?php echo json_encode($hum_arr); ?>
         }, {
             name: 'pH Tanah',
-            data: [2.3,4.6,7.0,6.5,33,44,1,6,2,5,2,1,4,1,3,5,7,5,7,5,3,6,4,7,3,6,9,2,6,9,22,5],
+            data: <?php echo json_encode($ph_arr); ?>
         }],
 
         responsive: {

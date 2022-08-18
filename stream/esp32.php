@@ -1,12 +1,20 @@
 <?php
-include "stream/koneksi.php";
+    // Atur tanggal ke default Jakarta(Indonesia WIB +7)
+    date_default_timezone_set("Asia/Jakarta");
+
+    // Koneksi ke Database
+    $conn = mysqli_connect("localhost", "root", "", "pkm_greenhouse");
+    if(!$conn) {
+        die("Conn fail: " . mysqli_connect_error());
+    }
 
     // Dapat Dari ESP ~
     $temp     = $_GET['temp'];
     $hum      = $_GET['hum'];
+    $ph       = $_GET['ph'];    
 
     $result = array();
-    $query = "INSERT INTO `tbl_raw` (`id`, `ser_esp`, `roll`, `yaw`, `pitch`, `timestamp`) VALUES (NULL, '".$id."', '".$roll."', '".$yaw."', '".$pitch."', current_timestamp());";
+    $query = "INSERT INTO `tbl_dashboard` (`id_dashboard`, `suhu`, `kelembapan`, `ph_tanah`, `tanggal`) VALUES (NULL, '".$temp."', '".$hum."', '".$ph."', '".date('d-m-Y')."');"; // query dari database
         
     if(mysqli_query($conn, $query)) {
         // echo $query;
@@ -14,12 +22,6 @@ include "stream/koneksi.php";
     } else {
         echo "Error: " . $query . "<br>" . mysqli_error($conn);
         die();
-    }
+    } 
 
-    // while (true) {
-    //     array_push($result, array('roll_ser_1'=> $row[0],  'pitch_ser_1'=> $row[1], 'yaw_ser_1'=> $row[2], 'timestamp'=> $row[3]));
-    // }
-
-    array_push($result, array('roll_ser_1'=> $row[0],  'pitch_ser_1'=> $row[1], 'yaw_ser_1'=> $row[2], 'timestamp'=> $row[3]));
-    json_encode(array("result_1" => $result));
 ?>
